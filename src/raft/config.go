@@ -8,20 +8,24 @@ package raft
 // test with the original before submitting.
 //
 
-import "6.5840/labgob"
-import "6.5840/labrpc"
-import "bytes"
-import "log"
-import "sync"
-import "sync/atomic"
-import "testing"
-import "runtime"
-import "math/rand"
-import crand "crypto/rand"
-import "math/big"
-import "encoding/base64"
-import "time"
-import "fmt"
+import (
+	"bytes"
+	"log"
+	"math/rand"
+	"runtime"
+	"sync"
+	"sync/atomic"
+	"testing"
+
+	"6.5840/labgob"
+	"6.5840/labrpc"
+
+	crand "crypto/rand"
+	"encoding/base64"
+	"fmt"
+	"math/big"
+	"time"
+)
 
 func randstring(n int) string {
 	b := make([]byte, 2*n)
@@ -242,6 +246,8 @@ func (cfg *config) applierSnap(i int, applyCh chan ApplyMsg) {
 			cfg.lastApplied[i] = m.CommandIndex
 			cfg.mu.Unlock()
 
+			// fmt.Printf("server %v apply success, index: %v, command: %v\n", i, m.CommandIndex, m.Command)
+
 			if (m.CommandIndex+1)%SnapShotInterval == 0 {
 				w := new(bytes.Buffer)
 				e := labgob.NewEncoder(w)
@@ -251,6 +257,7 @@ func (cfg *config) applierSnap(i int, applyCh chan ApplyMsg) {
 					xlog = append(xlog, cfg.logs[i][j])
 				}
 				e.Encode(xlog)
+
 				rf.Snapshot(m.CommandIndex, w.Bytes())
 			}
 		} else {
@@ -553,9 +560,15 @@ func (cfg *config) wait(index int, n int, startTerm int) interface{} {
 // if retry==false, calls Start() only once, in order
 // to simplify the early Lab 3B tests.
 func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
+	// fmt.Printf("cfg.one() begin, cmd: %v, expectedServers: %v, retry: %v\n", cmd, expectedServers, retry)
+	// defer func() {
+	// 	fmt.Printf("cfg.one() return\n")
+	// }()
+
 	t0 := time.Now()
 	starts := 0
 	for time.Since(t0).Seconds() < 10 && cfg.checkFinished() == false {
+		// fmt.Printf("[%v] ", time.Now())
 		// try all the servers, maybe one is the leader.
 		index := -1
 		for si := 0; si < cfg.n; si++ {
@@ -575,7 +588,10 @@ func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
 			}
 		}
 
+		// fmt.Printf("index: %v\n", index)
+
 		if index != -1 {
+
 			// somebody claimed to be the leader and to have
 			// submitted our command; wait a while for agreement.
 			t1 := time.Now()

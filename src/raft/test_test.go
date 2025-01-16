@@ -8,12 +8,14 @@ package raft
 // test with the original before submitting.
 //
 
-import "testing"
-import "fmt"
-import "time"
-import "math/rand"
-import "sync/atomic"
-import "sync"
+import (
+	"fmt"
+	"math/rand"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+)
 
 // The tester generously allows solutions to complete elections in one second
 // (much more than the paper's range of timeouts).
@@ -893,6 +895,14 @@ func TestFigure8Unreliable3C(t *testing.T) {
 	defer cfg.cleanup()
 
 	cfg.begin("Test (3C): Figure 8 (unreliable)")
+	// for debug
+
+	if Debug {
+		for i := 0; i < servers; i++ {
+			DFPrintf(i, "\n======Test (3C): Figure 8 (unreliable)======\n")
+		}
+	}
+	// end
 
 	cfg.one(rand.Int()%10000, 1, true)
 
@@ -954,6 +964,18 @@ func internalChurn(t *testing.T, unreliable bool) {
 		cfg.begin("Test (3C): churn")
 	}
 
+	// for debug
+	if Debug {
+		for i := 0; i < servers; i++ {
+			if unreliable {
+				DFPrintf(i, "\n======Test (3C): unreliable churn======\n")
+			} else {
+				DFPrintf(i, "\n======Test (3C): churn======\n")
+			}
+
+		}
+	}
+	// end
 	stop := int32(0)
 
 	// create concurrent clients
@@ -1109,12 +1131,23 @@ func snapcommon(t *testing.T, name string, disconnect bool, reliable bool, crash
 	leader1 := cfg.checkOneLeader()
 
 	for i := 0; i < iters; i++ {
+
 		victim := (leader1 + 1) % servers
 		sender := leader1
 		if i%3 == 1 {
 			sender = (leader1 + 1) % servers
 			victim = leader1
+
 		}
+		// for debug
+		if Debug {
+			fmt.Printf("iter: %v\n", i)
+			for j := 0; j < servers; j++ {
+				DFPrintf(j, "=================================iter: %v (victim: %v)=================================\n", i, victim)
+			}
+		}
+
+		// end
 
 		if disconnect {
 			cfg.disconnect(victim)
