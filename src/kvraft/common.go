@@ -10,6 +10,7 @@ type Err string
 
 // Put or Append
 type PutAppendArgs struct {
+	ID    ArgsId
 	Key   string
 	Value string
 	// You'll have to add definitions here.
@@ -18,15 +19,26 @@ type PutAppendArgs struct {
 }
 
 type PutAppendReply struct {
-	Err Err
+	RequestId ArgsId
+	Err       Err
+	Leader    int
 }
 
 type GetArgs struct {
 	Key string
 	// You'll have to add definitions here.
+	ID ArgsId
 }
 
 type GetReply struct {
-	Err   Err
-	Value string
+	RequestId ArgsId
+	Err       Err
+	Value     string
+	Leader    int
+}
+
+// ArgId用于唯一标识一个Client的request
+type ArgsId struct {
+	ClientId  string
+	SerialNum int
 }

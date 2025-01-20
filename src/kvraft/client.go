@@ -1,13 +1,19 @@
 package kvraft
 
-import "6.5840/labrpc"
-import "crypto/rand"
-import "math/big"
+import (
+	"crypto/rand"
+	"log"
+	"math/big"
 
+	"6.5840/labrpc"
+)
 
 type Clerk struct {
 	servers []*labrpc.ClientEnd
 	// You will have to modify this struct.
+	id           string
+	counter      int
+	leaderServer int
 }
 
 func nrand() int64 {
@@ -21,6 +27,9 @@ func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 	ck := new(Clerk)
 	ck.servers = servers
 	// You'll have to add code here.
+	ck.counter = 0
+	ck.id = randstring(20)
+	ck.leaderServer = -1
 	return ck
 }
 
@@ -35,9 +44,40 @@ func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 // must match the declared types of the RPC handler function's
 // arguments. and reply must be passed as a pointer.
 func (ck *Clerk) Get(key string) string {
+	if ck.leaderServer < 0 {
+		ck.leaderServer = int(nrand()) % len(ck.servers)
+	}
+
+	ck.counter++
+	args := GetArgs{
+		Key: key,
+		ID:  ArgsId{ClientId: ck.id, SerialNum: ck.counter},
+	}
+	reply := GetReply{}
+
+	err := ""
+	for {
+		ok := ck.servers[ck.leaderServer].Call("KVServer.Get", &args, &reply)
+		err = string(reply.Err)
+		if err == OK {
+			return reply.Value
+		}
+		if !ok {
+			ck.leaderServer = (ck.leaderServer + 1) % len(ck.servers)
+		} else if err == ErrNoKey {
+			return ""
+		} else if err == ErrWrongLeader {
+			if reply.Leader >= 0 {
+				ck.leaderServer = reply.Leader
+			} else {
+				ck.leaderServer = (ck.leaderServer + 1) % len(ck.servers)
+			}
+		} else {
+			log.Fatalf("unexpected Err type: %v int reply %v\n", err, reply)
+		}
+	}
 
 	// You will have to modify this function.
-	return ""
 }
 
 // shared by Put and Append.
