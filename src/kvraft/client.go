@@ -53,27 +53,29 @@ func (ck *Clerk) Get(key string) string {
 		Key: key,
 		ID:  ArgsId{ClientId: ck.id, SerialNum: ck.counter},
 	}
-	reply := GetReply{}
 
-	err := ""
 	for {
-		ok := ck.servers[ck.leaderServer].Call("KVServer.Get", &args, &reply)
-		err = string(reply.Err)
-		if err == OK {
-			return reply.Value
+
+		if Debug {
+			DFPrintf(99, "%v RPC (Get): client %v ---> server %v\n",
+				args.ID, ck.id, ck.leaderServer)
 		}
-		if !ok {
-			ck.leaderServer = (ck.leaderServer + 1) % len(ck.servers)
-		} else if err == ErrNoKey {
+		reply := GetReply{}
+		ok := ck.servers[ck.leaderServer].Call("KVServer.Get", &args, &reply)
+
+		if Debug {
+			DFPrintf(99, "%v RPC (Get): client %v ---> server %v (Err: %v, Value: %v, ok: %v)\n",
+				args.ID, ck.id, ck.leaderServer, reply.Err, reply.Value, ok)
+		}
+
+		if reply.Err == OK {
+			return reply.Value
+		} else if reply.Err == ErrNoKey {
 			return ""
-		} else if err == ErrWrongLeader {
-			if reply.Leader >= 0 {
-				ck.leaderServer = reply.Leader
-			} else {
-				ck.leaderServer = (ck.leaderServer + 1) % len(ck.servers)
-			}
 		} else {
-			log.Fatalf("unexpected Err type: %v int reply %v\n", err, reply)
+			// 轮询
+			ck.leaderServer = (ck.leaderServer + 1) % len(ck.servers)
+			// time.Sleep(5 * time.Millisecond)
 		}
 	}
 
@@ -90,6 +92,49 @@ func (ck *Clerk) Get(key string) string {
 // arguments. and reply must be passed as a pointer.
 func (ck *Clerk) PutAppend(key string, value string, op string) {
 	// You will have to modify this function.
+	if ck.leaderServer < 0 {
+		ck.leaderServer = int(nrand()) % len(ck.servers)
+	}
+
+	ck.counter++
+	args := PutAppendArgs{
+		Key:   key,
+		Value: value,
+		ID:    ArgsId{ClientId: ck.id, SerialNum: ck.counter},
+	}
+
+	for {
+		if Debug {
+			DFPrintf(99, "%v RPC (%v): client %v ---> server %v\n",
+				args.ID, op, ck.id, ck.leaderServer)
+			// fmt.Printf("request arrived: %v, reply: %v\n", ok, reply)
+		}
+		reply := PutAppendReply{}
+		ok := false
+
+		if op == "Put" {
+			ok = ck.servers[ck.leaderServer].Call("KVServer.Put", &args, &reply)
+		} else if op == "Append" {
+			ok = ck.servers[ck.leaderServer].Call("KVServer.Append", &args, &reply)
+		} else {
+			log.Fatalf("unexpected operation: %v\n", op)
+			return
+		}
+
+		if Debug {
+			DFPrintf(99, "%v RPC (%v): client %v ---> server %v (Err: %v, ok: %v)\n",
+				args.ID, op, ck.id, ck.leaderServer, reply.Err, ok)
+			// fmt.Printf("request arrived: %v, reply: %v\n", ok, reply)
+		}
+
+		if reply.Err == OK {
+			return
+		} else {
+			ck.leaderServer = (ck.leaderServer + 1) % len(ck.servers)
+			// time.Sleep(5 * time.Millisecond)
+		}
+	}
+
 }
 
 func (ck *Clerk) Put(key string, value string) {

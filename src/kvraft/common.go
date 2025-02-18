@@ -21,7 +21,6 @@ type PutAppendArgs struct {
 type PutAppendReply struct {
 	RequestId ArgsId
 	Err       Err
-	Leader    int
 }
 
 type GetArgs struct {
@@ -34,11 +33,19 @@ type GetReply struct {
 	RequestId ArgsId
 	Err       Err
 	Value     string
-	Leader    int
 }
 
 // ArgId用于唯一标识一个Client的request
 type ArgsId struct {
 	ClientId  string
 	SerialNum int
+}
+
+type Record struct {
+	ArgsId  ArgsId
+	Index   int
+	Err     Err
+	Value   string
+	Done    chan struct{}
+	Applied bool
 }
